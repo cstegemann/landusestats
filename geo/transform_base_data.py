@@ -17,6 +17,7 @@ import os
 import json 
 from typing import Dict, Literal
 from pathlib import Path
+from datetime import date
 
 # =============================================================================
 # External Python modules
@@ -55,28 +56,22 @@ DATA_SUBDIR_BASE = "base"
 DATA_SUBDIR_DERIVED = "derived"
 
 
-def get_or_create_basedb_obj(name: str, path_in: str | Path) -> BaseDataset:
+def get_or_create_basedb_obj(
+    name: str,
+    path_in: str | Path,
+    source_label: str = "",
+    source_date: str | date | None = None,
+) -> BaseDataset:
     """
-    path_in either has to be a "relative path" as gotten from the db object,
-    or just the filename, or the full path. Only one of them _should_ exist. 
-    We first check for the "relative path", than just the filename, then the 
-    full path.
+    Match and upsert strictly by relative path under GEO_DATA_DIR.
     """
     geo_data_dir = getattr(settings, "GEO_DATA_DIR", None)
     if geo_data_dir is None:
         geo_data_dir = Path(getattr(settings, "BASE_DIR", Path.cwd())) / "data"
     geo_data_dir = Path(geo_data_dir).expanduser().resolve()
-    data_dir = Path(geo_data_dir)/ DATA_SUBDIR_BASE
-
-    # check relative
-    path = geo_data_dir / path_in
+    path = (geo_data_dir / path_in).expanduser().resolve()
     if not path.is_file():
-        # now check just filename
-        path = data_dir / path_in
-        if not path.is_file():
-            path = Path(path_in).expanduser().resolve()
-            if not path.is_file():
-                raise ValueError(f"file does not exist: {path}")
+        raise ValueError(f"file does not exist: {path}")
 
     ext = path.suffix.lower()
     ext_to_format = {
@@ -93,16 +88,30 @@ def get_or_create_basedb_obj(name: str, path_in: str | Path) -> BaseDataset:
     except ValueError as e:
         raise ValueError(f"file must be inside GEO_DATA_DIR ({geo_data_dir}): {path}") from e
     
-    obj = BaseDataset.objects.filter(name=name).first()
+    obj = BaseDataset.objects.filter(relative_path=relative_path).first()
+
+    source_date_value = source_date
+    if isinstance(source_date_value, str):
+        source_date_value = source_date_value.strip() or None
+
+    conflicting_name = BaseDataset.objects.filter(name=name).exclude(relative_path=relative_path).first()
+    if conflicting_name is not None and not conflicting_name.derived_versions.exists():
+        conflicting_name.delete()
+
     if obj is None:
         obj = BaseDataset(
             name=name,
             relative_path=relative_path,
             file_format=file_format,
+            source_label=source_label,
+            source_date=source_date_value,
         )
     else:
+        obj.name = name
         obj.relative_path = relative_path
         obj.file_format = file_format
+        obj.source_label = source_label
+        obj.source_date = source_date_value
 
     obj.updated_at = timezone.now()
     obj.save()
@@ -120,9 +129,23 @@ def fetch_precomputed_admin_boundaries(base_dataset):
         geo_data_dir = Path(getattr(settings, "BASE_DIR", Path.cwd())) / "data"
     relative_path = Path(DATA_SUBDIR_DERIVED) / f"{base_dataset.name}_v{version}_adminboundaries.gpkg"
     derived_path = geo_data_dir / relative_path
-    if derived_path.is_file() and derived_path.suffix.lower() == ".gpkg":
+    derived_obj = DerivedDataset.objects.filter(
+        base=base_dataset,
+        version=version,
+        kind=DerivedDataset.Kind.ADMINBOUNDARIES,
+    ).first()
+    file_exists = derived_path.is_file() and derived_path.suffix.lower() == ".gpkg"
+    obj_matches_expected = derived_obj is not None and derived_obj.relative_path == relative_path.as_posix()
+
+    if file_exists and obj_matches_expected:
         # If derived GPKG exists, read  directly
         return gpd.read_file(derived_path)
+
+    # Broken DB/filesystem sync: force re-generate by removing stale side.
+    if derived_obj is not None:
+        derived_obj.delete()
+    if file_exists:
+        derived_path.unlink()
     return None
 
 class AdminBoundaryReader: 
@@ -189,7 +212,9 @@ class AdminBoundaryReader:
                 kind = DerivedDataset.Kind.ADMINBOUNDARIES,
                 version=self.version,
                 srid = self.target_srid,
-                relative_path=self.relative_path,
+                relative_path=self.relative_path.as_posix(),
+                source_label=base_dataset.source_label,
+                source_date=base_dataset.source_date,
             )
 
             # Clear any partial leftovers for this version/algo (safe idempotency)
@@ -255,5 +280,4 @@ class AdminBoundaryReader:
 
         # Return the computed gdf 
         return gdf
-
 

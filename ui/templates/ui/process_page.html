@@ -2,19 +2,59 @@
 <html>
   <head>
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <title>Configure processing</title>
   </head>
   <body>
+    <h1>Configure derivation</h1>
+    <p><a href="{{ overview_url }}">← Back to overview</a></p>
+
+    {% if errors %}
+      <ul style="color: red;">
+        {% for error in errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
     <form
       hx-post="{% url 'start_process' %}"
       hx-target="#status-area"
       hx-swap="innerHTML"
     >
       {% csrf_token %}
-      <button type="submit">Start long process</button>
+      <p>
+        <label>Base file (relative path)<br>
+          <input name="relative_path" value="{{ relative_path }}" required>
+        </label>
+      </p>
+      <p>
+        <label>Dataset name<br>
+          <input name="name" value="{% if form_values %}{{ form_values.name }}{% elif base_obj %}{{ base_obj.name }}{% endif %}" required>
+        </label>
+      </p>
+      <p>
+        <label>Driver<br>
+          <select name="driver_str" required>
+            <option value="">-- select driver --</option>
+            {% for driver in drivers %}
+              <option value="{{ driver }}" {% if form_values and form_values.driver_str == driver %}selected{% endif %}>{{ driver }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </p>
+      <p>
+        <label>Source label (optional)<br>
+          <input name="source_label" value="{% if form_values %}{{ form_values.source_label }}{% elif base_obj %}{{ base_obj.source_label }}{% endif %}">
+        </label>
+      </p>
+      <p>
+        <label>Source date (optional)<br>
+          <input type="date" name="source_date" value="{% if form_values %}{{ form_values.source_date }}{% elif base_obj and base_obj.source_date %}{{ base_obj.source_date|date:'Y-m-d' }}{% endif %}">
+        </label>
+      </p>
+      <button type="submit">Start derivation</button>
     </form>
 
-    <div id="status-area">
-      <!-- HTMX will render started/polling UI here -->
-    </div>
+    <div id="status-area"></div>
   </body>
 </html>

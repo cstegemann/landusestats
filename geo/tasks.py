@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 @shared_task(bind=True)
-def run_gpkg_init(self, name, base_file_path, driver_str):
+def run_gpkg_init(self, name, base_file_path, driver_str, source_label="", source_date=None):
     total_steps = 6
     start_time = time.time()
     def report(step, message):
@@ -38,7 +38,12 @@ def run_gpkg_init(self, name, base_file_path, driver_str):
             },
         )
     report(1, "check base")
-    base_db_obj = get_or_create_basedb_obj(name, base_file_path)
+    base_db_obj = get_or_create_basedb_obj(
+        name=name,
+        path_in=base_file_path,
+        source_label=source_label or "",
+        source_date=source_date,
+    )
     report(2, "check cached")
     admin_gdf = fetch_precomputed_admin_boundaries(base_db_obj)
     if admin_gdf is None:
