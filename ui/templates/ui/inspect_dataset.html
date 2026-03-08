@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Inspect dataset {{ dataset.name }}</title>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    >
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <style>
+      body { font-family: sans-serif; margin: 1rem; }
+      #map { height: 320px; margin-bottom: 1rem; border: 1px solid #d9d9d9; }
+      #boundary-search-results ul { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+      #boundary-search-results li { padding: 0.35rem 0.25rem; border-bottom: 1px solid #eee; }
+      .muted { color: #666; }
+      .btn-link {
+        border: none;
+        background: none;
+        font: inherit;
+        color: #0a58ca;
+        padding: 0;
+        cursor: pointer;
+        text-decoration: underline;
+      }
+      .btn-link:hover { color: #063a89; }
+    </style>
+  </head>
+  <body>
+    <p><a href="{{ overview_url }}">← Back to overview</a></p>
+    <h1>Inspect {{ dataset.name }}</h1>
+    <p>
+      Base dataset: <strong>{{ base_obj.name }}</strong> · Version: <strong>{{ dataset.version }}</strong> ·
+      Overlay level: <strong>{% if lowest_admin_level is not None %}{{ lowest_admin_level }}{% else %}n/a{% endif %}</strong>
+    </p>
+
+    <div id="map"></div>
+
+    <section>
+      <h2>Find admin boundaries (level ≤ 8)</h2>
+      <input
+        type="search"
+        name="q"
+        id="boundary-search"
+        placeholder="Type a boundary name..."
+        hx-get="{% url 'inspect_search' base_id=base_obj.id %}"
+        hx-trigger="keyup changed delay:250ms"
+        hx-target="#boundary-search-results"
+        autocomplete="off"
+      >
+      <div id="boundary-search-results"></div>
+    </section>
+
+    <section>
+      <h2>Selected boundary</h2>
+      <div id="selected-boundary" class="muted">Select a boundary from the search results.</div>
+    </section>
+
+    {{ lowest_boundaries|json_script:"lowest-boundary-data" }}
+
+    <script>
+      const map = L.map("map").setView([51.1657, 10.4515], 5);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(map);
+
+      const lowestBoundaryData = JSON.parse(document.getElementById("lowest-boundary-data").textContent || "[]");
+      const overlayLayer = L.geoJSON(lowestBoundaryData.map((item) => item.geom_geojson).filter(Boolean), {
+        style: { color: "#2563eb", weight: 1.5, fillOpacity: 0.08 }
+      }).addTo(map);
+
+      if (overlayLayer.getLayers().length > 0) {
+        map.fitBounds(overlayLayer.getBounds(), { padding: [12, 12] });
+      }
+
+      const highlightLayer = L.geoJSON([], {
+        style: { color: "#dc2626", weight: 2.5, fillOpacity: 0.2 }
+      }).addTo(map);
+
+      function showBoundaryOnMap(boundaryData) {
+        highlightLayer.clearLayers();
+        if (boundaryData && boundaryData.geom_geojson) {
+          highlightLayer.addData(boundaryData.geom_geojson);
+          map.fitBounds(highlightLayer.getBounds(), { padding: [20, 20] });
+        }
+      }
+
+      window.inspectBoundaryUI = {
+        showBoundaryOnMap,
+      };
+    </script>
+  </body>
+</html>

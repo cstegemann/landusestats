@@ -1,0 +1,15 @@
+<div>
+  <p><strong>{{ boundary.name }}</strong></p>
+  <ul>
+    <li>Admin level: {{ boundary.admin_level|default:"?" }}</li>
+    <li>Source: {{ boundary.source|default:"-" }}</li>
+    <li>External id: {{ boundary.external_id }}</li>
+    <li>Area (m²): {% if boundary.area_m2 %}{{ boundary.area_m2|floatformat:0 }}{% else %}-{% endif %}</li>
+  </ul>
+  <button type="button">Generate landuse stats</button>
+</div>
+<script>
+  if (window.inspectBoundaryUI) {
+    window.inspectBoundaryUI.showBoundaryOnMap({{ boundary_json|safe }});
+  }
+</script>

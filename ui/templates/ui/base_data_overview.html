@@ -39,7 +39,7 @@
                 {% if row.needs_processing %}
                   <a href="{% url 'process_page' %}?relative_path={{ row.relative_path|urlencode }}">Configure + process</a>
                 {% else %}
-                  up-to-date
+                  <a href="{{ row.inspect_url }}">Inspect</a>
                 {% endif %}
               </td>
             </tr>

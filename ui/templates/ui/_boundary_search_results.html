@@ -1,0 +1,26 @@
+{% if query and query|length < 2 %}
+  <p class="muted">Type at least 2 characters.</p>
+{% elif not results %}
+  {% if query %}
+    <p class="muted">No boundaries found for "{{ query }}".</p>
+  {% endif %}
+{% else %}
+  <ul>
+    {% for boundary in results %}
+      <li>
+        <button
+          class="btn-link"
+          type="button"
+          hx-get="{% url 'inspect_boundary' base_id=boundary.dataset.base_id boundary_id=boundary.id %}"
+          hx-target="#selected-boundary"
+          hx-swap="innerHTML"
+          data-boundary='{{ boundary.geom_geojson|escapejs }}'
+          onmouseenter="window.inspectBoundaryUI && window.inspectBoundaryUI.showBoundaryOnMap({ geom_geojson: JSON.parse(this.dataset.boundary) })"
+        >
+          {{ boundary.name }}
+        </button>
+        <small class="muted">(level {{ boundary.admin_level|default:"?" }}, {{ boundary.source }}:{{ boundary.external_id }})</small>
+      </li>
+    {% endfor %}
+  </ul>
+{% endif %}
