@@ -1,0 +1,13 @@
+numpy
+fiona
+geopandas
+shapely
+pandas
+pydantic
+rapidfuzz
+celery
+SQLAlchemy
+django
+django-htmx
+django-celery-results
+

@@ -1,0 +1,29 @@
+<div
+  {% if not done %}
+    hx-get="{% url 'process_status' task_id=task_id %}"
+    hx-trigger="every 1s"
+    hx-target="this"
+    hx-swap="outerHTML"
+  {% endif %}
+>
+  <p><strong>Status:</strong> {{ state }}</p>
+
+  {% if total %}
+    <p>
+      <progress value="{{ current }}" max="{{ total }}"></progress>
+      {{ current }}/{{ total }}
+    </p>
+  {% endif %}
+
+  {% if message %}
+    <p>{{ message }}</p>
+  {% endif %}
+
+  {% if state == "FAILURE" %}
+    <p style="color:red;">Error: {{ error }}</p>
+  {% endif %}
+
+  {% if done %}
+    <p><strong>Finished.</strong></p>
+  {% endif %}
+</div>

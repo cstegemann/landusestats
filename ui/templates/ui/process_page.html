@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  </head>
+  <body>
+    <form
+      hx-post="{% url 'start_process' %}"
+      hx-target="#status-area"
+      hx-swap="innerHTML"
+    >
+      {% csrf_token %}
+      <button type="submit">Start long process</button>
+    </form>
+
+    <div id="status-area">
+      <!-- HTMX will render started/polling UI here -->
+    </div>
+  </body>
+</html>

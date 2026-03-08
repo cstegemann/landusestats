@@ -1,0 +1,8 @@
+<div
+  hx-get="{% url 'process_status' task_id=task_id %}"
+  hx-trigger="load, every 2s"
+  hx-target="this"
+  hx-swap="outerHTML"
+>
+  Task queued… (id: {{ task_id }})
+</div>
